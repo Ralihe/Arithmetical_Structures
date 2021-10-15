@@ -1,1 +1,1 @@
-# ArithmeticalStructures
+# Arithmetical Structures
