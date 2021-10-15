@@ -1,0 +1,180 @@
+class T(list):
+    def __le__(left, right):
+        return all(l <= r for l, r in zip(left, right))
+def IntegerVectorsIterator(vect, min = None):
+    if len(vect) == 0:
+        yield []
+    else:
+        if min is None:
+            min = [0]*len(vect)
+        if vect < min:
+            return
+        else:
+            for vec in IntegerVectorsIterator(vect[1:], min = min[1:]):
+                yield [min[0]]+vec
+            for j in range(min[0]+1,vect[0]+1):
+                for vec in IntegerVectorsIterator(vect[1:]):
+                    yield [j]+vec
+def up(vector,pos):
+    return vector[:pos]+[vector[pos]+1]+vector[pos+1:]
+def min_elems_integers(Set):
+    if len(Set) == 0:
+        return []
+    else:
+        return [v for v in Set if not any(T(w) <= T(v) and v!=w for w in Set ) ]
+def up_vector_tuple(List,n): 
+    m = len(List)
+    if 2 <= m:
+        return tuple( max(List[k][i] for k in range(m)) for i in range(n) )
+    else:
+        return List[0]
+def reduced_matrix(L,s): 
+    n = L.nrows()
+    I = [0..(n-1)]
+    J = I[:s] + I[s+1:]
+    return L.matrix_from_rows_and_columns(J,J)
+def list_vectors_ite(A):
+    na = len(A)
+    k = list( len(A[s])-1 for s in range(na) )
+    for ind in IntegerVectorsIterator(k):
+        yield tuple({A[s][ind[s]] for s in range(na)})
+def minimals_iterator(Alpha):
+    for v in Alpha:
+        if not any(T(w) <= T(v) and v != w for w in Alpha):
+            yield v
+def min_calC(L,d,Alpha,search_neg): 
+    n = L.nrows()
+    M = diagonal_matrix(d) - L
+    zero_vec = [0]*n 
+    Mdet = M.det()
+    if 0 <= Mdet:
+        return [[zero_vec],search_neg]
+    else:
+        C = []
+        sn_new = []
+        coeff_x = list(reduced_matrix(M,q).det() for q in range(n))
+        maxd = list(ceil((-Mdet) / coeff_x[s]) for s in range(n))
+        for dnew in IntegerVectorsIterator(maxd):
+            if any(T(c) <= T(dnew) for c in C):
+                continue
+            else:
+                dd = list(dnew[t] + d[t] for t in range(n))
+                if dd not in search_neg:
+                    newM = diagonal_matrix(dnew) + M
+                    newMdet = newM.det()
+                    if 0 <= newMdet:
+                        C.append(dnew)
+                    elif all((not T(snn) <= T(dd)) for snn in sn_new):
+                        sn_new.append(dd)
+        search_neg_new = set( tuple(ele) for ele in search_neg+sn_new)
+        search_neg_new = list(list(ele) for ele in search_neg_new )
+        if C == []:
+            return [ [zero_vec],search_neg_new]
+        else:
+            return [C,search_neg_new]
+def Add_special(d,D): 
+    if len(D) == 0:
+        return [d]
+    elif d in D:
+        return D
+    elif any(T(dd) <= T(d) for dd in D):
+        return D
+    else:
+        DD = [dd for dd in D if not T(d) <= T(dd)] + [d]
+        return DD
+def Add_special_list(List,D): 
+    if len(List) == 0:
+        return D
+    elif len(List) == 1:
+        return Add_special(List[0],D)
+    else:
+        return Add_special(List[-1], Add_special_list(List[:-1],D) )
+def Find(L,d,S,D,Alpha,search_neg):
+    k = len(S)
+    n = L.nrows()
+    if k == 0:
+        L_d = diagonal_matrix(d) - L
+        determinant = L_d.det()
+        if 0 <= determinant:
+            D = Add_special(d,D)
+            return [D,search_neg]
+        else:
+            if d in search_neg:
+                return [D,search_neg]
+            else:
+                [quasi_almost,search_neg] = min_calC(L,d,Alpha,search_neg)
+                new_d = list(list(d_prime[j] + d[j] for j in range(n)) for d_prime in quasi_almost)
+                D = Add_special_list(new_d,D)
+                return [D,search_neg]
+    elif k == 1:
+        for i in range(n):
+            if i not in S:
+                [D,search_neg] = Find(L,up(d,i),list(),D,Alpha,search_neg)
+        return [D,search_neg]
+    else:
+        if k < n:
+            for i in range(n):
+                if i not in S:
+                    [D,search_neg] = Find(L,up(d,i),list(),D,Alpha,search_neg)
+        for pair in Combinations(S,2):
+            [D,search_neg] = Find(L,up(up(d,pair[0]),pair[1]),list(),D,Alpha,search_neg)
+        return [D,search_neg]
+def minD_0(L):
+    A_temp = {}
+    A = []
+    D = []
+    n = L.nrows() 
+    if n == 2:
+        constant_coeff = L.det() 
+        if -1 <= constant_coeff:
+            return [[1,1]]
+        else:
+            cc = (-1)*constant_coeff + 1
+            D = list([i,ceil( (cc-1)/i )] for i in range(1,cc))
+            return min_elems_integers(D)
+    else:
+        if not Graph(L, format = 'adjacency_matrix').is_connected(): 
+            for s in range(n):
+                if sum(L.column(s)) == 0:
+                    L_s = reduced_matrix(L,s)
+                    D_1 = list( ds[:s] + [1] + ds[s:] for ds in minD_0(L_s) if (diagonal_matrix(ds)-L_s).det() > 0)
+                    D_2 = set(tuple(up(ds,i)[:s] + [1] + up(ds,i)[s:]) for i in range(n-1) for ds in minD_0(L_s) if (diagonal_matrix(ds)-L_s).det() == 0)
+                    D_2 = list(list(d2) for d2 in D_2)
+                    return min_elems_integers(D_1 + D_2)
+            for s in range(n):
+                L_s = reduced_matrix(L,s)
+                A_temp[s] = minD_0(L_s)  
+                A.append(list( tuple(d_temp[:s]+[1]+d_temp[s:]) for d_temp in A_temp[s] )) 
+            Alpha = set( map(lambda vectors: up_vector_tuple(list(vectors),n), list_vectors_ite(A)) )
+            Alpha = list( list(element) for element in Alpha)
+            search_neg =[]
+            for d in minimals_iterator(Alpha): 
+                L_d = diagonal_matrix(d) - L
+                S = list(q for q in range(n) if reduced_matrix(L_d,q).det() == 0)
+                [D,search_neg] = Find(L,d,S,D,Alpha,search_neg) 
+            return D 
+        else:
+            canonical_as = list( sum(L.row(i)) for i in range(n) )
+            one_vec = [1]*n
+            if T(one_vec) <= T(canonical_as):
+                D.append(canonical_as)
+            else: 
+                for s in range(n):
+                    if sum(L.row(s)) == 0:
+                        L_s = reduced_matrix(L,s)
+                        D_1 = list( ds[:s] + [1] + ds[s:] for ds in minD_0(L_s) if (diagonal_matrix(ds)-L_s).det() > 0)
+                        D_2 = set(tuple(up(ds,i)[:s] + [1] + up(ds,i)[s:]) for i in range(n-1) for ds in minD_0(L_s) if (diagonal_matrix(ds)-L_s).det() == 0)
+                        D_2 = list(list(d2) for d2 in D_2)
+                        return min_elems_integers(D_1 + D_2)
+            for s in range(n):
+                L_s = reduced_matrix(L,s)
+                A_temp[s] = minD_0(L_s)  
+                A.append(list( tuple(d_temp[:s]+[1]+d_temp[s:]) for d_temp in A_temp[s] )) 
+            Alpha = set( map(lambda vectors: up_vector_tuple(list(vectors),n), list_vectors_ite(A)) )
+            Alpha = list( list(element) for element in Alpha)
+            search_neg = []
+            for d in minimals_iterator(Alpha): 
+                L_d = diagonal_matrix(d) - L
+                S = list(q for q in range(n) if reduced_matrix(L_d,q).det() == 0)
+                [D,search_neg] = Find(L,d,S,D,Alpha,search_neg) 
+            return D
